@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lia — Void Workspace Console</title>
+<style>
+  :root { color-scheme: dark; --bg:#0b0d10; --fg:#d6dae0; --dim:#7c8794;
+          --ok:#4ec9a4; --bad:#e06c75; --warn:#d7a545; --line:#1e242c; --acc:#7aa2f7; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font:14px/1.55 ui-monospace,'SF Mono',Menlo,monospace; }
+  header { padding:20px 28px; border-bottom:1px solid var(--line); display:flex;
+           align-items:baseline; gap:14px; flex-wrap:wrap; }
+  h1 { font-size:16px; margin:0; letter-spacing:.04em; }
+  .sub { color:var(--dim); font-size:12px; }
+  main { padding:24px 28px; max-width:1000px; }
+  section { margin-bottom:28px; }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.12em;
+       color:var(--dim); margin:0 0 10px; font-weight:600; }
+  table { width:100%; border-collapse:collapse; }
+  td,th { text-align:left; padding:6px 10px; border-bottom:1px solid var(--line);
+          vertical-align:top; font-size:13px; }
+  th { color:var(--dim); font-weight:500; font-size:11px; text-transform:uppercase;
+       letter-spacing:.08em; }
+  .ok{color:var(--ok)} .bad{color:var(--bad)} .warn{color:var(--warn)} .dim{color:var(--dim)}
+  .card { border:1px solid var(--line); border-radius:6px; padding:14px 16px; margin-bottom:10px; }
+  .card h3 { margin:0 0 6px; font-size:13px; color:var(--acc); font-weight:600; }
+  .tag { display:inline-block; border:1px solid var(--line); border-radius:3px;
+         padding:1px 6px; margin:2px 4px 2px 0; font-size:11px; color:var(--dim); }
+  .bar { height:4px; background:var(--line); border-radius:2px; overflow:hidden; margin-top:8px; }
+  .bar > i { display:block; height:100%; background:var(--warn); }
+  code { color:var(--acc); }
+  a { color:var(--acc); }
+  .note { border-left:2px solid var(--warn); padding:4px 0 4px 12px; color:var(--dim);
+          font-size:12.5px; margin:10px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>LIA — VOID WORKSPACE CONSOLE</h1>
+  <span class="sub" id="stamp">loading…</span>
+</header>
+<main>
+  <section>
+    <h2>Providers</h2>
+    <table id="prov"><tbody><tr><td class="dim">loading…</td></tr></tbody></table>
+    <div class="note" id="nous-note"></div>
+  </section>
+
+  <section>
+    <h2>Local services</h2>
+    <table id="svc"><tbody><tr><td class="dim">loading…</td></tr></tbody></table>
+  </section>
+
+  <section>
+    <h2>Model selection</h2>
+    <table id="models"><tbody><tr><td class="dim">loading…</td></tr></tbody></table>
+    <div class="note">Primary model is unset. No model named elena, elana or liana exists among
+    the 425 on the Nous Portal. Confirm the real name before setting it — do not guess.</div>
+  </section>
+
+  <section>
+    <h2>Memory</h2>
+    <div id="mem"><span class="dim">loading…</span></div>
+  </section>
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+const cls = (ok) => ok ? 'ok' : 'bad';
+const row = (a,b,c2) => `<tr><td>${a}</td><td class="${c2||''}">${b}</td><td class="dim">${c2===undefined?'':c2}</td></tr>`;
+
+function mins(ms){ return ms==null?'—':Math.max(0,Math.round(ms/60000)); }
+
+async function load() {
+  $('#stamp').textContent = new Date().toLocaleString();
+
+  let s;
+  try { s = await (await fetch('/api/status')).json(); }
+  catch(e){ $('#stamp').innerHTML = `<span class="bad">console API unreachable: ${e.message}</span>`; return; }
+
+  const p = [];
+  p.push(row('Nous Portal', `<span class="${cls(s.nous.ok)}">${s.nous.ok?'AUTHENTICATED':'NO TOKEN'}</span>`,
+             s.nous.expiresAt ? `expires ${new Date(s.nous.expiresAt).toLocaleTimeString()}` : ''));
+  p.push(row('Models reachable', s.nous.models ? `${s.nous.models}` : '<span class="bad">none</span>',
+             s.nous.error||'via inference-api.nousresearch.com'));
+  $('#prov').innerHTML = p.join('');
+
+  if (s.nous.expiresAt) {
+    const total = 60, left = mins(new Date(s.nours||s.nous.expiresAt) - new Date());
+    const pct = Math.max(0, Math.min(100, (left/total)*100));
+    $('#nous-note').innerHTML = `Nous access token has a <b>~1 hour TTL</b> and is not refreshed by
+      this console — it reads the token Hermes holds. <b>${left} min</b> left.
+      <div class="bar"><i style="width:${pct}%"></i></div>`;
+  }
+
+  $('#svc').innerHTML = [
+    row('Lia collector', s.collector.tokenAvailable
+        ? `<span class="ok">${s.collector.url}</span>` : '<span class="bad">no token</span>',
+        s.collector.tokenAvailable?'token present':'missing ~/.lia-cli/inbox/token'),
+    row('Void bridge', s.voidBridge.tokenAvailable
+        ? `<span class="ok">${s.voidBridge.url}</span>` : '<span class="bad">no token</span>',
+        s.voidBridge.tokenAvailable?'token present':'missing ~/.config/void-bridge.env'),
+    row('Ollama (local)', '<span class="bad">not running</span>',
+        `${s.local.ollamaBaseUrl} — old build lost in the 2026-09-26 rebuild`),
+    row('Void editor', '<span class="ok">~/.local/bin/void</span>', 'installed'),
+    row('Supercode', '<span class="ok">~/.local/bin/supercode</span>', 'installed'),
+  ].join('');
+
+  const m = s.models;
+  $('#models').innerHTML = [
+    row('Primary', m.primary ? `<span class="ok">${m.primary}</span>` : '<span class="warn">UNSET</span>', ''),
+    row('Fallback', m.fallback||'—'),
+    row('xAI', m.xai||'—', 'reachable through the Nous token'),
+    row('Google', m.google||'—', 'reachable through the Nous token'),
+    row('Local', s.local.ollamaModel||'<span class="warn">UNSET</span>', 'ollama'),
+  ].join('');
+
+  try {
+    const mem = await (await fetch('/api/memory')).json();
+    if (mem.error) { $('#mem').innerHTML = `<span class="bad">${mem.error}</span>`; return; }
+    const bv = mem.byVisibility||{};
+    $('#mem').innerHTML = `
+      <div class="card">
+        <h3>${mem.total} entries</h3>
+        <div>
+          <span class="tag">public ${bv.public||0}</span>
+          <span class="tag">hidden ${bv.hidden||0}</span>
+          <span class="tag">encrypted ${bv.encrypted||0} (sealed, not shown)</span>
+        </div>
+        <div style="margin-top:10px">${(mem.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+      </div>` + (mem.entries||[]).slice(0,12).map(e=>`
+      <div class="card">
+        <h3>${e.id}</h3>
+        <div class="dim" style="font-size:11.5px">${new Date(e.at).toLocaleString()}</div>
+        <div style="margin-top:6px">${escapeHtml(e.preview)}…</div>
+        <div style="margin-top:6px">${(e.tags||[]).map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
+      </div>`).join('');
+  } catch(e){ $('#mem').innerHTML = `<span class="bad">${e.message}</span>`; }
+}
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>

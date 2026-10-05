@@ -1,0 +1,12 @@
+{
+  "name": "lia-void-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lia's localized frameworks, wired into the Void editor workspace. Runs on the Nous Portal today; Ollama-backed local inference is the open piece.",
+  "type": "module",
+  "scripts": {
+    "doctor": "node src/doctor.mjs",
+    "console": "node web/serve.mjs"
+  },
+  "engines": { "node": ">=20" }
+}

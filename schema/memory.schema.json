@@ -1,0 +1,44 @@
+{
+  "$comment": "Memory schema, matching the on-disk format of lia-cli/data/memory/lia-memory.vault.json so the two can share a store without migration.",
+  "version": 1,
+  "store": {
+    "path": "~/Projects/lia-cli/data/memory/lia-memory.vault.json",
+    "graph": {
+      "driver": "falkordb",
+      "fallback_driver": "neo4j",
+      "uri_env": "LIA_GRAPH_URI",
+      "note": "Not provisioned. The schema below is what to load once a store exists; there is no graph running on this machine today."
+    }
+  },
+  "entry": {
+    "id": { "type": "string", "required": true },
+    "timestamp": { "type": "string", "format": "date-time", "required": true },
+    "content": { "type": "string", "required": true },
+    "tags": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "visibility": {
+      "type": "string",
+      "enum": ["public", "hidden", "encrypted"],
+      "default": "public"
+    },
+    "signature": { "type": "string" }
+  },
+  "node_labels": ["Memory", "Entity", "Episode", "Skill"],
+  "edges": [
+    { "type": "REMEMBERS", "from": "Entity", "to": "Episode" },
+    { "type": "DISTILLED_INTO", "from": "Episode", "to": "Skill" },
+    { "type": "RELATES_TO", "from": "Entity", "to": "Entity" },
+    { "type": "ENCRYPTED_AS", "from": "Memory", "to": "Memory" }
+  ],
+  "encryption": {
+    "scheme": "aes-256-gcm",
+    "kdf": "scrypt",
+    "envelope": { "iv": "hex", "authTag": "hex", "data": "hex" },
+    "passphrase_env": "LIA_MEMORY_PASSPHRASE",
+    "passphrase_note": "Never in this repo. Source from a 0600 file outside the tree."
+  },
+  "persistence_contract": [
+    "A fact written in one session must be readable in the next with no model in between.",
+    "Public entries are plaintext. Hidden are filtered at query. Encrypted are sealed at write.",
+    "The graph is a cache over the JSON store, never the system of record."
+  ]
+}

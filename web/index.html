@@ -115,6 +115,71 @@ async function load() {
     row('Local', s.local.ollamaModel||'<span class="warn">UNSET</span>', 'ollama'),
   ].join('');
 
+  // --- Content creation with Grok (xAI) ---
+  const btnCreate = document.createElement('button');
+  btnCreate.id = 'btnCreate';
+  btnCreate.textContent = 'Create content with Grok';
+  btnCreate.style.cssText = 'padding:6px 12px;cursor:pointer;display:none';
+  const createStatus = document.createElement('span');
+  createStatus.id = 'createStatus';
+  createStatus.className = 'dim';
+  const createResult = document.createElement('div');
+  createResult.id = 'createResult';
+  createResult.style.cssText =
+    'margin-top:10px;background:#0f1824;border:1px solid var(--line);border-radius:6px;padding:10px 12px;min-height:60px;white-space:pre-wrap;font:12.5px/1.55 ui-monospace,monospace;color:#d6dae0';
+  const contentCard = document.createElement('div');
+  contentCard.className = 'card';
+  contentCard.id = 'contentCard';
+  contentCard.innerHTML =
+    `<textarea id="contentPrompt" rows="3" placeholder="What should Lia write/design next?"></textarea>` +
+    `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">` +
+    `<button id="btnContent" style="padding:6px 12px;cursor:pointer">Create with Grok</button>` +
+    `<span id="createStatus" class="dim"></span>` +
+    `</div>` +
+    `<div id="createResult" style="margin-top:10px;background:#0f1824;border:1px solid var(--line);border-radius:6px;padding:10px 12px;min-height:60px;white-space:pre-wrap;font:12.5px/1.55 ui-monospace,monospace;color:#d6dae0"></div>`;
+  contentCard.appendChild(btnCreate);
+  contentCard.appendChild(createStatus);
+  contentCard.appendChild(createResult);
+
+  $('#models').after(contentCard);
+
+  const esc = (s) => String(s).replace(/[&<>"]/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  btnCreate.addEventListener('click', async () => {
+    const prompt = $('#contentPrompt').value.trim();
+    if (!prompt) return;
+    const status = $('#createStatus');
+    const result = $('#createResult');
+    status.textContent = 'creating…';
+    result.textContent = '';
+    btnCreate.disabled = true;
+    try {
+      const res = await fetch('/api/content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, model: 'grok' }),
+      });
+      const j = await res.json();
+      if (j.ok) {
+        status.textContent = 'OK';
+        result.textContent = j.content;
+      } else {
+        status.textContent = 'ERROR: ' + (j.error || j.message);
+        result.textContent = '';
+      }
+    } catch (e) {
+      status.textContent = 'ERROR: ' + e.message;
+    } finally {
+      btnCreate.disabled = false;
+    }
+  });
+
+  // show the content card only when a model is selected
+  const m = s.models;
+  if (m.xai) { btnCreate.style.display = 'inline-block'; createStatus.textContent = 'xAI — ' + m.xai + ' (via Nous token)'; }
+  else { btnCreate.style.display = 'none'; }
+
   try {
     const mem = await (await fetch('/api/memory')).json();
     if (mem.error) { $('#mem').innerHTML = `<span class="bad">${mem.error}</span>`; return; }

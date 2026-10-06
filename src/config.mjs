@@ -3,19 +3,22 @@
 
 import { readFileSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const home = homedir();
+const selfDir = dirname(fileURLToPath(import.meta.url));
+// .env.example sits next to src/, wherever this repo is checked out.
+const envExample = join(selfDir, "..", ".env.example");
 
 function expand(p) {
   return p.replace(/%h/g, home).replace(/^~(?=\/|$)/, home);
 }
 
 function readEnvExample() {
-  const path = join(home, "Projects/lia-void-workspace/.env.example");
-  if (!existsSync(path)) return {};
+  if (!existsSync(envExample)) return {};
   const out = {};
-  for (const line of readFileSync(path, "utf8").split("\n")) {
+  for (const line of readFileSync(envExample, "utf8").split("\n")) {
     const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/);
     if (m) out[m[1]] = m[2].trim();
   }

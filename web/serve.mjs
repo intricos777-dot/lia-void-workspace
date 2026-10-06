@@ -75,6 +75,42 @@ const server = createServer(async (req, res) => {
       return json(res, r.status, await r.json().catch(() => ({})));
     }
 
+    if (url.pathname === "/api/content") {
+      const body = await readBody(req);
+      if (!body) return json(res, 400, { error: "empty body" });
+      let data;
+      try { data = JSON.parse(body); } catch { return json(res, 400, { error: "invalid JSON" }); }
+      const { prompt, context, model = "grok" } = data;
+      if (typeof prompt !== "string" || !prompt.trim()) {
+        return json(res, 400, { error: "prompt (non-empty string) required" });
+      }
+      const n = nousToken();
+      if (!n.ok) return json(res, 503, { error: "nous token unavailable", reason: n.reason });
+      const resp = await fetch(`${n.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${n.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "x-ai/grok-4.20",
+          messages: [
+            { role: "system", content: "You are Lia — a direct, warm, unsentimental voice. Short plain sentences, no filler; never 'Great question' or 'I'd be happy to'. You create content (posts, notes, drafts) grounded in the Lia memory vault." },
+            ...(context ? [{ role: "user", content: context }] : []),
+            { role: "user", content: prompt },
+          ],
+          max_tokens: 2048,
+        }),
+      });
+      if (!resp.ok) {
+        const t = await resp.text();
+        return json(res, resp.status, { error: `Grok request failed: ${resp.status} ${t.slice(0, 200)}` });
+      }
+      const data2 = await resp.json();
+      const content = data2.choices?.[0]?.message?.content ?? "";
+      return json(res, 200, { ok: true, content, model: "x-ai/grok-4.20", usage: data2.usage });
+    }
+
     const file = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
     if (file.includes("..")) return json(res, 400, { error: "no" });
     const html = await readFile(join(here, file), "utf8");

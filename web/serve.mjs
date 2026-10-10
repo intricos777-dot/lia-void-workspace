@@ -13,14 +13,59 @@ const here = dirname(fileURLToPath(import.meta.url));
 const c = config();
 
 async function readBody(req) {
+  const MAX = 2 * 1024 * 1024;
+  let n = 0;
   const chunks = [];
-  for await (const ch of req) chunks.push(ch);
+  for await (const ch of req) {
+    n += ch.length;
+    if (n > MAX) throw new Error("request body too large");
+    chunks.push(ch);
+  }
   return chunks.length ? Buffer.concat(chunks).toString("utf8") : null;
 }
+
+// Loopback-only guards. The console binds 127.0.0.1, which stops remote hosts but
+// NOT the user's own browser: any page the browser loads can POST to localhost.
+// A cross-origin "simple request" (text/plain, no preflight) would otherwise reach
+// /api/content and spend the Nous token, and a DNS-rebinding page could read the
+// responses. Require a loopback Host and refuse any non-loopback Origin.
+const LOCAL_HOSTS = new Set(["127.0.0.1:8788", "localhost:8788", "[::1]:8788"]);
+const LOCAL_NAMES = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
+
+function hostAllowed(req) {
+  return LOCAL_HOSTS.has(String(req.headers.host || "").toLowerCase());
+}
+
+function originAllowed(req) {
+  const o = req.headers.origin;
+  if (!o) return true; // same-origin fetches and CLI clients send no Origin
+  try {
+    const u = new URL(o);
+    return LOCAL_NAMES.has(u.hostname) && (u.port === "" || u.port === "8788");
+  } catch {
+    return false;
+  }
+}
+
+// Only GET reads and the one POST action exist; anything else is refused rather
+// than silently falling through to a route.
+const GET_ONLY = new Set(["/api/status", "/api/memory", "/api/ideas"]);
+const POST_ONLY = new Set(["/api/content"]);
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, "http://127.0.0.1");
   res.setHeader("Cache-Control", "no-store");
+
+  if (!hostAllowed(req)) return json(res, 403, { error: "bad Host header" });
+  if (!originAllowed(req)) return json(res, 403, { error: "cross-origin request refused" });
+
+  const method = req.method;
+  if (GET_ONLY.has(url.pathname) && method !== "GET") {
+    return json(res, 405, { error: "GET required" });
+  }
+  if (POST_ONLY.has(url.pathname) && method !== "POST") {
+    return json(res, 405, { error: "POST required" });
+  }
 
   try {
     if (url.pathname === "/api/status") {

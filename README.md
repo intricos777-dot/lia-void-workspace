@@ -1,3 +1,4 @@
+<!-- Watermark: Living_Sin (intricos777-dot) + AI agents (Hermes, Lia, opencode) - collaborative work -->
 # lia-void-workspace
 
 Lia's localized frameworks, wired into the Void editor workspace.

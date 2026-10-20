@@ -1,3 +1,4 @@
+// Watermark: Living_Sin (intricos777-dot) + AI agents (Hermes, Lia, opencode) - collaborative work
 // Probes every dependency and prints a verdict. Read-only.
 //   node src/doctor.mjs
 

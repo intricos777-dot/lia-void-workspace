@@ -1,3 +1,4 @@
+// Watermark: Living_Sin (intricos777-dot) + AI agents (Hermes, Lia, opencode) - collaborative work
 // Local console for the Lia workspace. Binds 127.0.0.1 only.
 //   node web/serve.mjs
 // Serves the static console and proxies the two local services so the browser

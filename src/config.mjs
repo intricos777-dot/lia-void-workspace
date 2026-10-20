@@ -1,3 +1,4 @@
+// Watermark: Living_Sin (intricos777-dot) + AI agents (Hermes, Lia, opencode) - collaborative work
 // Resolves credentials and endpoints from files under $HOME.
 // Nothing secret is ever read from this repo or written into it.
 
